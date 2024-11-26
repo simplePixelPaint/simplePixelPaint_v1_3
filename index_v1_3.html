@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Pixel Paint</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                justify-content: center;
+            }
+            fieldset {
+                border: 2px solid #000;
+                border-radius: 8px;
+                padding: 10px;
+                width: 100%;
+                max-width: 400px;
+            }
+            legend {
+                font-weight: bold;
+                padding: 0 10px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+            }
+            input[type="radio"] {
+                margin-right: 10px;
+            }
+            .color-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-top: 10px;
+            }
+            .color-grid.hidden {
+                display: none;
+            }
+            .color-box {
+                width: 40px;
+                height: 40px;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 12px;
+                color: #fff;
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+            }
+            .color-box.neutra {
+                color: #000;
+                text-shadow: none;
+            }
+            .color-box.selected {
+                outline: 3px solid rgba(0, 0, 0, 0.5);
+                outline-offset: -3px;
+            }
+            .color-box.selected2 {
+                outline: 3px solid white;
+                outline-offset: -3px;
+            }
+            .color-box.borracha {
+                position: relative;
+                background-color: #B3B3B3;
+                overflow: hidden;
+            }
+            .color-box.borracha::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 150%;
+                height: 150%;
+                background: linear-gradient(45deg, #D32F2F 50%, #1976D2 50%); /* Vermelho e Azul */
+                opacity: 0.4;
+                transform: rotate(45deg);
+                transform-origin: center;
+            }
+            .game-board {
+                width: 400px;
+                height: 400px;
+                background-color: #F0F0F0;
+                display: grid;
+                grid-template-columns: repeat(20, 1fr);
+                grid-template-rows: repeat(20, 1fr);
+                gap: 1px;
+                border: 2px solid black;
+            }
+            .game-board div {
+                background-color: #F8F8F8;
+                border: 1px solid #C0C0C0;
+                width: 100%;
+                height: 100%;
+                transition: background-color 0.2s ease-in-out;
+                cursor: pointer;
+            }
+            .game-board div:hover {
+                background-color: #D0D0D0;
+                border-color: #A0A0A0;
+            }
+            .control-button {
+                width: 80px;
+                height: 30px;
+                font-size: 12px;
+                margin: 5px;
+                cursor: pointer;
+                text-align: center;
+                align-items: center;
+                vertical-align: center;
+            }
+        
+            @media (max-width: 600px) {
+                .color-box {
+                    width: 30px;
+                    height: 30px;
+                    font-size: 10px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="game-board" id="gameBoard"></div>
+        <div class="controls2">
+            <button id="new" class="control-button" onclick="newPaint();">Novo</button>
+            <button id="open" class="control-button" onclick="openPaint();">Abrir</button>
+            <button id="save" class="control-button" onclick="savePaint();">Salvar</button>
+            <button id="export" class="control-button" onclick="exportAsPNG();">Exportar</button>
+        </div>
+        <canvas id="canvas" style="display: none;" width="400" height="400"></canvas>
+        <fieldset>
+            <legend onclick="toggleVisibility('neutras')">
+                <input type="radio" name="color-group" onchange="toggleVisibility('neutras')" />
+                Cores Neutras / Borracha
+            </legend>
+            <div class="color-grid hidden" id="neutras"></div>
+        </fieldset>
+        <fieldset>
+            <legend>
+                <input type="radio" name="color-group" onchange="toggleVisibility('primarias')" />
+                Cores Primárias
+            </legend>
+            <div class="color-grid hidden" id="primarias"></div>
+        </fieldset>
+        <fieldset>
+            <legend>
+                <input type="radio" name="color-group" onchange="toggleVisibility('secundarias')" />
+                Cores Secundárias
+            </legend>
+            <div class="color-grid hidden" id="secundarias"></div>
+        </fieldset>
+        <fieldset>
+            <legend>
+                <input type="radio" name="color-group" onchange="toggleVisibility('terciarias')" />
+                Cores Terciárias
+            </legend>
+            <div class="color-grid hidden" id="terciarias"></div>
+        </fieldset>
+        
+        <script>
+            // Arrays com as cores
+            const primarias = [
+                { nome: "Vermelho", cor: "#FF0000" },
+                { nome: "Azul", cor: "#0000FF" },
+                { nome: "Amarelo", cor: "#FFFF00" }
+            ];
+        
+            const secundarias = [
+                { nome: "Laranja", cor: "#FFA500" },
+                { nome: "Verde", cor: "#008000" },
+                { nome: "Roxo", cor: "#800080" }
+            ];
+        
+            const terciarias = [
+                { nome: "Vermelho-alaranjado", cor: "#FF4500" },
+                { nome: "Amarelo-alaranjado", cor: "#FFD700" },
+                { nome: "Amarelo-esverdeado", cor: "#ADFF2F" },
+                { nome: "Azul-esverdeado", cor: "#00CED1" },
+                { nome: "Azul-arroxeado", cor: "#6A5ACD" },
+                { nome: "Vermelho-arroxeado", cor: "#C71585" }
+            ];
+        
+            const neutras = [
+                { nome: "Preto", cor: "#000000", classe: "neutra" },
+                { nome: "Branco", cor: "#FFFFFF", classe: "neutra" },
+                { nome: "Cinza", cor: "#808080", classe: "neutra" },
+                { nome: "Borracha", cor: "#B3B3B3", classe: "borracha" } // Borracha modificada
+            ];
+        
+            // Função para renderizar as cores
+            function renderColors(containerId, colors) {
+                const container = document.getElementById(containerId);
+                colors.forEach(color => {
+                    const box = document.createElement("div");
+                    box.className = `color-box ${color.classe || ""}`;
+                    box.style.backgroundColor = color.cor;
+                    //box.textContent = color.nome === "Borracha" ? "" : color.nome; // Não mostrar texto na borracha
+                    container.appendChild(box);
+                });
+            }
+        
+            // Função para alternar visibilidade
+            function toggleVisibility(activeId) {
+                const allGrids = document.querySelectorAll(".color-grid");
+                allGrids.forEach(grid => {
+                    if (grid.id === activeId) {
+                        grid.classList.remove("hidden");
+                    } else {
+                        grid.classList.add("hidden");
+                    }
+                });
+            }
+        
+            // Renderizando as cores
+            renderColors("primarias", primarias);
+            renderColors("secundarias", secundarias);
+            renderColors("terciarias", terciarias);
+            renderColors("neutras", neutras);
+          
+            // Seleciona todos os elementos com a classe 'color-box'
+            const colorBoxes = document.querySelectorAll('.color-box');
+          
+            // Adiciona um evento de clique para cada elemento
+            colorBoxes.forEach(box => {
+                box.addEventListener('click', () => {
+                    // Remove as classes 'selected' e 'selected2' de todos os elementos
+                    colorBoxes.forEach(b => {
+                        b.classList.remove('selected');
+                    });
+                    box.classList.add('selected');
+                });
+            });
+            
+            // Seleciona o game board
+            const gameBoard = document.getElementById('gameBoard');
+            
+            // Variável para armazenar a cor selecionada
+            let selectedColor = null;
+            
+            // Adiciona evento de clique para atualizar a cor selecionada
+            colorBoxes.forEach(box => {
+                box.addEventListener('click', () => {
+                    // Remove a seleção de outras cores
+                    colorBoxes.forEach(b => b.classList.remove('selected'));
+                    
+                    // Marca a cor clicada como selecionada
+                    box.classList.add('selected');
+                    
+                    // Atualiza a cor selecionada
+                    selectedColor = box.style.backgroundColor;
+                    box.classList.contains('borracha') ? selectedColor = 'borracha' : null;
+                });
+            });
+            
+            // Função para criar células do game board
+            function createGameBoard() {
+                for (let i = 0; i < 400; i++) {
+                    const cell = document.createElement('div');
+                    cell.style.backgroundColor = '#F0F0F0'; // Cor padrão
+                    cell.style.border = '1px solid #ddd'; // Borda leve
+                    cell.style.width = '100%';
+                    cell.style.height = '100%';
+                    
+                    // Adiciona evento de clique na célula
+                    cell.addEventListener('click', () => {
+                        // Remove cor ou aplica a selecionada
+                        if (selectedColor === 'borracha') {
+                            // Apaga o elemento clicado
+                            cell.style.backgroundColor = '#F0F0F0';
+                        } else if (selectedColor) {
+                            // Aplica a nova cor
+                            cell.style.backgroundColor = selectedColor;
+                        }
+                    });
+                    gameBoard.appendChild(cell);
+                }
+            }
+            
+            // Chama a função para criar o game board
+            createGameBoard();
+        
+            // Função para novo paint
+            function newPaint() {
+                if (window.confirm("Você tem certeza que deseja iniciar uma nova pintura? Se sua pintura não tiver sido salva, você a perderá.")) {
+                    location.reload();
+                }
+            }
+        
+            // Função para salvar a pintura
+            function savePaint() {
+            const cells = gameBoard.getElementsByTagName('div');
+            const paintData = [];
+            for (let cell of cells) {
+                paintData.push(cell.style.backgroundColor);
+            }
+            const blob = new Blob([JSON.stringify(paintData)], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            const timestamp = new Date().toISOString().replace(/[-:.]/g, ''); // Remove caracteres inválidos
+            link.download = `pixel-paint_${timestamp}.spav`;  
+            link.click();
+        }
+
+            // Função para abrir uma pintura
+            function openPaint() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.spav';  // Aceitar arquivos .spa
+                input.addEventListener('change', function (event) {
+                    const file = event.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function () {
+                        const paintData = JSON.parse(reader.result);
+                        const cells = gameBoard.getElementsByTagName('div');
+                        for (let i = 0; i < cells.length; i++) {
+                            cells[i].style.backgroundColor = paintData[i];
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+                input.click();
+            }
+        
+             // Sincronizar células do game board com o canvas
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Atualizar o canvas quando uma célula for pintada
+            function updateCanvas() {
+                const cells = document.querySelectorAll('.game-board div');
+                cells.forEach((cell, index) => {
+                    const x = (index % 20) * 20; // 20px por célula, linha
+                    const y = Math.floor(index / 20) * 20; // Coluna
+                    ctx.fillStyle = cell.style.backgroundColor || '#F0F0F0'; // Cor da célula ou padrão
+                    ctx.fillRect(x, y, 20, 20); // Desenhar no canvas
+                });
+            }
+            
+            // Atualize o canvas ao clicar em uma célula
+            document.querySelectorAll('.game-board div').forEach(cell => {
+                cell.addEventListener('click', updateCanvas);
+            });
+            
+            // Função para exportar como PNG
+            function exportAsPNG() {
+                updateCanvas();
+                // Gera a URL da imagem
+                const dataURL = canvas.toDataURL('image/png');
+
+                const timestamp = new Date().toISOString().replace(/[-:.]/g, ''); // Remove caracteres inválidos
+                const fileName = `pixel-paint_${timestamp}.png`;
+            
+                // Crie um link para baixar a imagem
+                const downloadLink = document.createElement('a');
+                downloadLink.href = dataURL;
+                downloadLink.download = fileName;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            }
+        </script>
+    </body>
+</html>
